@@ -5,7 +5,7 @@ from flamby.datasets.fed_ixi.dataset import FedIXITiny
 NUM_CLIENTS = 3
 BATCH_SIZE = 2
 
-SEEDS = [0, 10, 20, 30, 40]
+SEEDS = [42]
 NUM_EPOCHS_POOLED = 10
 LR = 0.001
 

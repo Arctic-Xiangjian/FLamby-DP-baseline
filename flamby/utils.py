@@ -70,6 +70,61 @@ def evaluate_model_on_tests(
     else:
         return results_dict
 
+def evaluate_each_model_on_tests(
+    models, test_dataloaders, metric, use_gpu=True, return_pred=False
+):
+    """This function takes a pytorch model and evaluate it on a list of\
+    dataloaders using the provided metric function.
+    Parameters
+    ----------
+    model: torch.nn.Module,
+        A trained model that can forward the test_dataloaders outputs
+    test_dataloaders: List[torch.utils.data.DataLoader]
+        A list of torch dataloaders
+    metric: callable,
+        A function with the following signature:\
+            (y_true: np.ndarray, y_pred: np.ndarray) -> scalar
+    use_gpu: bool, optional,
+        Whether or not to perform computations on GPU if available. \
+        Defaults to True.
+    Returns
+    -------
+    dict
+        A dictionnary with keys client_test_{0} to \
+        client_test_{len(test_dataloaders) - 1} and associated scalar metrics \
+        as leaves.
+    """
+    results_dict = {}
+    y_true_dict = {}
+    y_pred_dict = {}
+    with torch.no_grad():
+        for i in tqdm(range(len(test_dataloaders))):
+            model=models[i]
+            if torch.cuda.is_available() and use_gpu:
+                model = model.cuda()
+            model.eval()
+            test_dataloader_iterator = iter(test_dataloaders[i])
+            y_pred_final = []
+            y_true_final = []
+            for (X, y) in test_dataloader_iterator:
+                if torch.cuda.is_available() and use_gpu:
+                    X = X.cuda()
+                    y = y.cuda()
+                y_pred = model(X).detach().cpu()
+                y = y.detach().cpu()
+                y_pred_final.append(y_pred.numpy())
+                y_true_final.append(y.numpy())
+
+            y_true_final = np.concatenate(y_true_final)
+            y_pred_final = np.concatenate(y_pred_final)
+            results_dict[f"client_test_{i}"] = metric(y_true_final, y_pred_final)
+            if return_pred:
+                y_true_dict[f"client_test_{i}"] = y_true_final
+                y_pred_dict[f"client_test_{i}"] = y_pred_final
+    if return_pred:
+        return results_dict, y_true_dict, y_pred_dict
+    else:
+        return results_dict
 
 def read_config(config_file):
     """Read a config file in YAML.

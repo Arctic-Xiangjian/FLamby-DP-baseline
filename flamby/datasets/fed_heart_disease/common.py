@@ -3,7 +3,7 @@ import torch
 from flamby.datasets.fed_heart_disease.dataset import FedHeartDisease
 
 NUM_CLIENTS = 4
-BATCH_SIZE = 4
+BATCH_SIZE = 32
 NUM_EPOCHS_POOLED = 50
 LR = 0.001
 Optimizer = torch.optim.Adam

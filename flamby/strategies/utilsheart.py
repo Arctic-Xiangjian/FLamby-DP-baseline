@@ -2,12 +2,14 @@ import copy
 import os
 import time
 from datetime import datetime
-
+from flamby.datasets import fed_heart_disease
 import numpy as np
 import torch
+from torch.utils.data import DataLoader as dl
+from flamby.utils import evaluate_model_on_tests
 from opacus import PrivacyEngine
 from torch.utils.tensorboard import SummaryWriter
-
+from flamby.datasets.fed_heart_disease import FedHeartDisease, HeartDiseaseRaw
 
 class DataLoaderWithMemory:
     """This class allows to iterate the dataloader infinitely batch by batch.
@@ -198,7 +200,7 @@ class _Model:
             # Compute prediction and loss
             _pred = self.model(X)
             _loss = self._loss(_pred, y)
-
+            print()
             # Backpropagation
             _loss.backward()
             self._optimizer.step()
@@ -208,8 +210,10 @@ class _Model:
                 _loss.item(),
                 self.num_batches_seen // _num_batches_per_epoch,
             )
-
             if self.log:
+                acc=fed_heart_disease.metric(y.detach().cpu().numpy(),_pred.detach().cpu().numpy())
+                #acc=evaluate_model_on_tests(self.model,[dl(FedHeartDisease(train=False,pooled=True ),batch_size=1,shuffle=False,num_workers=0,)],fed_heart_disease.metric)
+                #acc=acc['client_test_0']
                 if _batch % self.log_period == 0:
                     # print(
                     #     f"loss: {_loss:>7f} after {self.num_batches_seen:>5d}"
@@ -221,7 +225,11 @@ class _Model:
                         _loss,
                         self.num_batches_seen,
                     )
-
+                    self.writer.add_scalar(
+                        f"client{self.client_id}/train/acc",
+                        acc,
+                        self.num_batches_seen,
+                    )
                 if _current_epoch > self.current_epoch:
                     # At each epoch we look at the histograms of all the
                     # network's parameters

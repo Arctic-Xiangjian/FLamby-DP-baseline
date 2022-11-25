@@ -2,7 +2,7 @@ import copy
 import os
 import time
 from datetime import datetime
-
+from flamby.datasets import fed_ixi
 import numpy as np
 import torch
 from opacus import PrivacyEngine
@@ -208,8 +208,9 @@ class _Model:
                 _loss.item(),
                 self.num_batches_seen // _num_batches_per_epoch,
             )
-
+            
             if self.log:
+                acc=fed_ixi.metric(y,_pred)
                 if _batch % self.log_period == 0:
                     # print(
                     #     f"loss: {_loss:>7f} after {self.num_batches_seen:>5d}"
@@ -219,6 +220,11 @@ class _Model:
                     self.writer.add_scalar(
                         f"client{self.client_id}/train/Loss",
                         _loss,
+                        self.num_batches_seen,
+                    )
+                    self.writer.add_scalar(
+                        f"client{self.client_id}/train/Aucc",
+                        acc,
                         self.num_batches_seen,
                     )
 

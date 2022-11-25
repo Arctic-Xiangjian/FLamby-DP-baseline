@@ -6,7 +6,7 @@ from zipfile import ZipFile
 import pandas as pd
 import torch
 from monai.transforms import (
-    AddChannel,
+    EnsureChannelFirst,
     AsDiscrete,
     Compose,
     NormalizeIntensity,
@@ -141,7 +141,7 @@ class IXITinyRaw(Dataset):
         )
 
         default_transform = Compose(
-            [ToTensor(), AddChannel(), Resize(self.common_shape)]
+            [ToTensor(), EnsureChannelFirst(), Resize(self.common_shape)]
         )
 
         intensity_transform = Compose([NormalizeIntensity()])

@@ -4,7 +4,7 @@ import collections
 import torch
 from tqdm import tqdm
 import copy
-from flamby.strategies.utilsbatch import DataLoaderWithMemory, _Model
+from flamby.strategies.utilsheart import DataLoaderWithMemory, _Model
 
 
 class FedAvg:
