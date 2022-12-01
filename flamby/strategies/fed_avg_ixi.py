@@ -156,16 +156,23 @@ class FedAvg:
         """
         #GLOBAL_MODEL=copy.deepcopy(self.models_list[0])
     
-        global_acc_center=evaluate_model_on_tests(self.models_list[0].model,self.test_dataloader_center,metric)
-        self.global_acc_center['Average'].append(global_acc_center['client_test_0'])
+        # global_acc_center=evaluate_model_on_tests(self.models_list[0].model,self.test_dataloader_center,metric)
+        # self.global_acc_center['Average'].append(global_acc_center['client_test_0'])
+        # local_acc_gobal_model=evaluate_model_on_tests(self.models_list[0].model,self.test_dataloaders,metric)
+        # self.local_acc['client_test_0_average'].append(local_acc_gobal_model['client_test_0'])
+        # self.local_acc['client_test_1_average'].append(local_acc_gobal_model['client_test_1'])
+        # self.local_acc['client_test_2_average'].append(local_acc_gobal_model['client_test_2'])
         for _model, dataloader_with_memory, acc_keys in zip(
             self.models_list, self.training_dataloaders_with_memory,list(self.global_acc_center.keys())[1:]
         ):
             # Local Optimization
             self._local_optimization(_model, dataloader_with_memory)
-            global_acc_local=evaluate_model_on_tests(_model.model,self.test_dataloader_center,metric)
-            self.global_acc_center[acc_keys].append(global_acc_local['client_test_0'])
-
+            # global_acc_local=evaluate_model_on_tests(_model.model,self.test_dataloader_center,metric)
+            # self.global_acc_center[acc_keys].append(global_acc_local['client_test_0'])
+        local_acc_local_model=evaluate_each_model_on_tests([self.models_list[0].model,self.models_list[1].model,self.models_list[2].model],self.test_dataloaders,metric)
+        self.local_acc['client_test_0_local'].append(local_acc_local_model['client_test_0'])
+        self.local_acc['client_test_1_local'].append(local_acc_local_model['client_test_1'])
+        self.local_acc['client_test_2_local'].append(local_acc_local_model['client_test_2'])
 
         fed_state_dict=collections.OrderedDict()
         # Aggregation step
@@ -190,4 +197,4 @@ class FedAvg:
                 self.perform_round()
         else:
             self.perform_round()
-        return self.global_acc_center,[m.model for m in self.models_list]
+        return self.local_acc,self.global_acc_center,[m.model for m in self.models_list]
