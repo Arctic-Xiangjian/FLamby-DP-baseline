@@ -195,6 +195,7 @@ class FedAvg:
         if self.nrounds!=0:
             for _ in tqdm(range(self.nrounds)):
                 self.perform_round()
+            
         else:
             self.perform_round()
         return self.local_acc,self.global_acc_center,[m.model for m in self.models_list]
