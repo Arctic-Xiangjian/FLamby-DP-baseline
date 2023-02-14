@@ -4,10 +4,8 @@ import collections
 import torch
 from tqdm import tqdm
 import copy
-from flamby.strategies.utilsbatch import DataLoaderWithMemory, _Model
-from flamby.utils import evaluate_each_model_on_tests
-from flamby.utils import evaluate_model_on_tests
-from flamby.datasets.fed_ixi import metric
+from flamby.strategies.utils import DataLoaderWithMemory, _Model
+
 
 class FedAvg:
     """Federated Averaging Strategy class.
@@ -66,8 +64,6 @@ class FedAvg:
     def __init__(
         self,
         training_dataloaders: List,
-        test_dataloader_center: List,
-        test_dataloaders: List,
         model: torch.nn.Module,
         loss: torch.nn.modules.loss._Loss,
         optimizer_class: torch.optim.Optimizer,
@@ -94,8 +90,7 @@ class FedAvg:
         ]
         self.training_sizes = [len(e) for e in self.training_dataloaders_with_memory]
         self.total_number_of_samples = sum(self.training_sizes)
-        self.test_dataloader_center=test_dataloader_center
-        self.test_dataloaders=test_dataloaders
+
         self.dp_target_epsilon = dp_target_epsilon
         self.dp_target_delta = dp_target_delta
         self.dp_max_grad_norm = dp_max_grad_norm
@@ -104,8 +99,7 @@ class FedAvg:
         self.log_period = log_period
         self.log_basename = log_basename
         self.logdir = logdir
-        self.global_acc_center=collections.OrderedDict({'Average':[],'client_test_0_local':[],'client_test_1_local':[],'client_test_2_local':[]})
-        self.local_acc=collections.OrderedDict({'client_test_0_local':[],'client_test_1_local':[],'client_test_2_local':[],'client_test_0_average':[],'client_test_1_average':[],'client_test_2_average':[]})
+
         self.models_list = [
             _Model(
                 model=model,
@@ -132,7 +126,7 @@ class FedAvg:
         self.num_clients = len(self.training_sizes)
         self.bits_counting_function = bits_counting_function
 
-    def _local_optimization(self, _model: _Model, dataloader_with_memory,i):
+    def _local_optimization(self, _model: _Model, dataloader_with_memory):
         """Carry out the local optimization step.
 
         Parameters
@@ -143,7 +137,7 @@ class FedAvg:
             A dataloader that can be called infinitely using its get_samples()
             method.
         """
-        _model._local_train(dataloader_with_memory, self.num_updates,i)
+        _model._local_train(dataloader_with_memory, self.num_updates)
 
     def perform_round(self):
         """Does a single federated averaging round. The following steps will be
@@ -155,28 +149,16 @@ class FedAvg:
         - the averaged updates willl be used to update the local model
         """
         #GLOBAL_MODEL=copy.deepcopy(self.models_list[0])
-        global_acc_center=evaluate_model_on_tests(self.models_list[0].model,self.test_dataloader_center,metric)
-        self.global_acc_center['Average'].append(global_acc_center['client_test_0'])
-        local_acc_gobal_model=evaluate_model_on_tests(self.models_list[0].model,self.test_dataloaders,metric)
-        self.local_acc['client_test_0_average'].append(local_acc_gobal_model['client_test_0'])
-        self.local_acc['client_test_1_average'].append(local_acc_gobal_model['client_test_1'])
-        self.local_acc['client_test_2_average'].append(local_acc_gobal_model['client_test_2'])
-        for _model, dataloader_with_memory, acc_keys,i in zip(
-            self.models_list, self.training_dataloaders_with_memory,list(self.global_acc_center.keys())[1:],range(3)
+        weight_keys=self.models_list[0].model.state_dict().keys()
+        for _model, dataloader_with_memory, size in zip(
+            self.models_list, self.training_dataloaders_with_memory, self.training_sizes
         ):
             # Local Optimization
-            self._local_optimization(_model, dataloader_with_memory,i)
-            global_acc_local=evaluate_model_on_tests(_model.model,self.test_dataloader_center,metric)
-            self.global_acc_center[acc_keys].append(global_acc_local['client_test_0'])
-        local_acc_local_model=evaluate_each_model_on_tests([self.models_list[0].model,self.models_list[1].model,self.models_list[2].model],self.test_dataloaders,metric)
-        self.local_acc['client_test_0_local'].append(local_acc_local_model['client_test_0'])
-        self.local_acc['client_test_1_local'].append(local_acc_local_model['client_test_1'])
-        self.local_acc['client_test_2_local'].append(local_acc_local_model['client_test_2'])
 
+            self._local_optimization(_model, dataloader_with_memory)
         fed_state_dict=collections.OrderedDict()
         # Aggregation step
         if self.nrounds!=0:
-            weight_keys=self.models_list[0].model.state_dict().keys()
             for key in weight_keys:
                 key_avg=0
                 for _model,train_size in zip(self.models_list,self.training_sizes):
@@ -184,7 +166,7 @@ class FedAvg:
                 fed_state_dict[key]=key_avg
             for _model in self.models_list:
                 _model.model.load_state_dict(fed_state_dict)
-        
+
 
 
     def run(self):
@@ -194,12 +176,6 @@ class FedAvg:
         if self.nrounds!=0:
             for _ in tqdm(range(self.nrounds)):
                 self.perform_round()
-            global_acc_center=evaluate_model_on_tests(self.models_list[0].model,self.test_dataloader_center,metric)
-            self.global_acc_center['Average'].append(global_acc_center['client_test_0'])
-            local_acc_gobal_model=evaluate_model_on_tests(self.models_list[0].model,self.test_dataloaders,metric)
-            self.local_acc['client_test_0_average'].append(local_acc_gobal_model['client_test_0'])
-            self.local_acc['client_test_1_average'].append(local_acc_gobal_model['client_test_1'])
-            self.local_acc['client_test_2_average'].append(local_acc_gobal_model['client_test_2'])
         else:
             self.perform_round()
-        return self.local_acc,self.global_acc_center,[m.model for m in self.models_list]
+        return [m.model for m in self.models_list]

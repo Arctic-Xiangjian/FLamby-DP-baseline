@@ -7,8 +7,10 @@ import numpy as np
 import torch
 from opacus import PrivacyEngine
 from torch.utils.tensorboard import SummaryWriter
-
-
+from flamby.utils import evaluate_model_on_tests
+from flamby.datasets.fed_ixi import metric
+from flamby.datasets.fed_ixi import FedIXITiny,IXITinyRaw
+from torch.utils.data import DataLoader as dl
 class DataLoaderWithMemory:
     """This class allows to iterate the dataloader infinitely batch by batch.
     When there are no more batches the iterator is reset silently.
@@ -75,7 +77,7 @@ class _Model:
         log=False,
         log_period=100,
         log_basename="local_model",
-        logdir="./runs",
+        logdir="./IXI_DATASET",
         seed=None,
     ):
         """_summary_
@@ -170,7 +172,43 @@ class _Model:
         self.batch_size = None
         self.num_batches_per_epoch = None
 
-    def _local_train(self, dataloader_with_memory, num_updates):
+    def _local_train_new(self, dataloader_with_memory, num_updates,i):
+        test_dl_center =[dl(
+                FedIXITiny(train=False,pooled=True),
+                batch_size=1,
+                shuffle=False,
+                num_workers=0,
+            )]
+        _device='cuda'
+        center_acc={'model_0':[],'model_1':[],'model_2':[]}
+        for _batch in range(120):
+            X, y = dataloader_with_memory.get_samples()
+            X, y = X.to(_device), y.to(_device)
+            if _batch == 0:
+                # Initialize the batch-size using the first batch to avoid
+                # edge cases with drop_last=False
+                batch_size = X.shape[0]
+            # Compute prediction and loss
+            _pred = self.model(X)
+            loss = self._loss(_pred, y)
+            center_Test=evaluate_model_on_tests(self.model,test_dl_center,metric)
+            center_acc[f'model_{i}'].append(center_Test['client_test_0'])
+            # Backpropagation
+            loss.backward()
+            self._optimizer.step()
+            self._optimizer.zero_grad()
+        center_Test=evaluate_model_on_tests(self.model,test_dl_center,metric)
+        center_acc[f'model_{i}'].append(center_Test['client_test_0'])
+        np.save(f'/ssd_Samsung870_2T/ML712/IXI_result_local_new/center_acc_{i}.npy',center_acc)
+
+    def _local_train(self, dataloader_with_memory, num_updates,i):
+        test_dl_center =[dl(
+        FedIXITiny(train=False,pooled=True),
+        batch_size=1,
+        shuffle=False,
+        num_workers=0,
+            )]
+        center_acc={'model_0':[],'model_1':[],'model_2':[]}
         """This method trains the model using the dataloader_with_memory given
         for num_updates steps.
 
@@ -200,6 +238,8 @@ class _Model:
             _loss = self._loss(_pred, y)
 
             # Backpropagation
+            # center_Test=evaluate_model_on_tests(self.model,test_dl_center,metric)
+            # center_acc[f'model_{i}'].append(center_Test['client_test_0'])
             _loss.backward()
             self._optimizer.step()
             self._optimizer.zero_grad()
@@ -210,7 +250,7 @@ class _Model:
             )
             
             if self.log:
-                acc=fed_ixi.metric(y,_pred)
+                _acc=fed_ixi.metric(y,_pred)
                 if _batch % self.log_period == 0:
                     # print(
                     #     f"loss: {_loss:>7f} after {self.num_batches_seen:>5d}"
@@ -224,7 +264,7 @@ class _Model:
                     )
                     self.writer.add_scalar(
                         f"client{self.client_id}/train/Aucc",
-                        acc,
+                        _acc,
                         self.num_batches_seen,
                     )
 
@@ -237,6 +277,16 @@ class _Model:
                         )
 
             self.current_epoch = _current_epoch
+        # _pred=self.model(X)
+        # _acc=fed_ixi.metric(y,_pred)
+        # self.writer.add_scalar(
+        #     f"client{self.client_id}/train/Aucc",
+        #     _acc,
+        #     self.num_batches_seen,
+        # )
+        # center_Test=evaluate_model_on_tests(self.model,test_dl_center,metric)
+        # center_acc[f'model_{i}'].append(center_Test['client_test_0'])
+        # np.save(f'/ssd_Samsung870_2T/ML712/IXI_result_local_new/center_acc_{i}.npy',center_acc)
 
     def _prox_local_train(self, dataloader_with_memory, num_updates, mu):
         """This method trains the model using the dataloader_with_memory given
@@ -260,6 +310,7 @@ class _Model:
         self.model = self.model.train()
         for idx, _batch in enumerate(range(num_updates)):
             X, y = dataloader_with_memory.get_samples()
+            print(f'\n {X}')
             X, y = X.to(self._device), y.to(self._device)
             if idx == 0:
                 # Initialize the batch-size using the first batch to avoid

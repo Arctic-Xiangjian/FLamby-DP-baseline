@@ -9,7 +9,7 @@ import seaborn as sns
 import torch
 import yaml
 from tqdm import tqdm
-
+import copy
 import flamby.datasets as datasets
 
 torch.manual_seed(42)
@@ -39,14 +39,16 @@ def evaluate_model_on_tests(
         client_test_{len(test_dataloaders) - 1} and associated scalar metrics \
         as leaves.
     """
+
     results_dict = {}
     y_true_dict = {}
     y_pred_dict = {}
+    model1=copy.deepcopy(model)
     if torch.cuda.is_available() and use_gpu:
-        model = model.cuda()
-    model.eval()
+        model1 = model1.cuda()
+    model1.eval()
     with torch.no_grad():
-        for i in tqdm(range(len(test_dataloaders))):
+        for i in range(len(test_dataloaders)):
             test_dataloader_iterator = iter(test_dataloaders[i])
             y_pred_final = []
             y_true_final = []
@@ -54,7 +56,7 @@ def evaluate_model_on_tests(
                 if torch.cuda.is_available() and use_gpu:
                     X = X.cuda()
                     y = y.cuda()
-                y_pred = model(X).detach().cpu()
+                y_pred = model1(X).detach().cpu()
                 y = y.detach().cpu()
                 y_pred_final.append(y_pred.numpy())
                 y_true_final.append(y.numpy())
@@ -99,10 +101,10 @@ def evaluate_each_model_on_tests(
     y_pred_dict = {}
     with torch.no_grad():
         for i in tqdm(range(len(test_dataloaders))):
-            model=models[i]
+            model1=copy.deepcopy(models[i])
             if torch.cuda.is_available() and use_gpu:
-                model = model.cuda()
-            model.eval()
+                model1 = model1.cuda()
+            model1.eval()
             test_dataloader_iterator = iter(test_dataloaders[i])
             y_pred_final = []
             y_true_final = []
@@ -110,7 +112,7 @@ def evaluate_each_model_on_tests(
                 if torch.cuda.is_available() and use_gpu:
                     X = X.cuda()
                     y = y.cuda()
-                y_pred = model(X).detach().cpu()
+                y_pred = model1(X).detach().cpu()
                 y = y.detach().cpu()
                 y_pred_final.append(y_pred.numpy())
                 y_true_final.append(y.numpy())

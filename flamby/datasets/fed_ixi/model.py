@@ -22,15 +22,15 @@ class Baseline(nn.Module):
         out_classes: int = 2,
         dimensions: int = 3,
         num_encoding_blocks: int = 3,
-        out_channels_first_layer: int = 8,
-        normalization: Optional[str] = "batch",
+        out_channels_first_layer: int = 4,
+        normalization: Optional[str] = "group",
         pooling_type: str = "max",
         upsampling_type: str = "linear",
         preactivation: bool = False,
         residual: bool = False,
         padding: int = 1,
         padding_mode: str = "zeros",
-        activation: Optional[str] = "PReLU",
+        activation: Optional[str] = "ReLU",
         initial_dilation: Optional[int] = None,
         dropout: float = 0,
         monte_carlo_dropout: float = 0,
@@ -173,10 +173,10 @@ class ConvolutionalBlock(nn.Module):
 
         norm_layer = None
         if normalization is not None:
-            class_name = "{}Norm{}d".format(normalization.capitalize(), dimensions)
+            class_name = "{}Norm".format(normalization.capitalize())
             norm_class = getattr(nn, class_name)
             num_features = in_channels if preactivation else out_channels
-            norm_layer = norm_class(num_features)
+            norm_layer = norm_class(1,num_features)
 
         activation_layer = None
         if activation is not None:

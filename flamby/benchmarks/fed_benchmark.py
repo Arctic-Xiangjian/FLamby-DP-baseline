@@ -211,7 +211,7 @@ def main(args_cli):
             df.drop(index_of_interest, inplace=True)
         m = copy.deepcopy(global_init)
         set_seed(args_cli.seed)
-        m = train_single_centric(
+        m = train_single00_centric(
             m,
             train_pooled,
             use_gpu,

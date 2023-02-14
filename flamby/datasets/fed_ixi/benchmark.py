@@ -20,7 +20,7 @@ from flamby.datasets.fed_ixi import (
 )
 from flamby.utils import evaluate_model_on_tests
 
-
+BATCH_SIZE=6
 def main(num_workers_torch, use_gpu=True, gpu_id=0, log=False):
     """
     Train a UNet for brain mask segmentation on IXI-Tiny by maximizing the DICE
@@ -80,7 +80,7 @@ def main(num_workers_torch, use_gpu=True, gpu_id=0, log=False):
             dimensions=3,
             num_encoding_blocks=3,
             out_channels_first_layer=8,
-            normalization="batch",
+            normalization="instance",
             upsampling_type="linear",
             padding=True,
             activation="PReLU",
@@ -90,7 +90,7 @@ def main(num_workers_torch, use_gpu=True, gpu_id=0, log=False):
             m = m.cuda()
 
         loss = BaselineLoss()
-        optimizer = optim.AdamW(m.parameters())
+        optimizer = optim.SGD(m.parameters(),lr=0.05)
         scheduler = torch.optim.lr_scheduler.StepLR(
             optimizer, 10, gamma=0.95, last_epoch=-1
         )
@@ -98,7 +98,7 @@ def main(num_workers_torch, use_gpu=True, gpu_id=0, log=False):
         if log:
             # Create one SummaryWriter for each seed in order to overlay the plots
             writer = SummaryWriter(log_dir=f"./runs/seed{seed}")
-
+        print(BATCH_SIZE)
         for e in tqdm(range(NUM_EPOCHS_POOLED)):
             m.train()
             tot_loss = 0
@@ -128,7 +128,9 @@ def main(num_workers_torch, use_gpu=True, gpu_id=0, log=False):
             m, [test_dl], metric, use_gpu=use_gpu
         )
         print(current_results_dict)
-
+        current_results_dict = evaluate_model_on_tests(
+            m, [test_dl], metric, use_gpu=use_gpu
+        )
         results.append(current_results_dict["client_test_0"])
 
     results = np.array(results)

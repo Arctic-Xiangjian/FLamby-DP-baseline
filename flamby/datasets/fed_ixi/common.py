@@ -6,7 +6,7 @@ NUM_CLIENTS = 3
 BATCH_SIZE = 2
 
 SEEDS = [42]
-NUM_EPOCHS_POOLED = 10
+NUM_EPOCHS_POOLED = 1
 LR = 0.001
 
 Optimizer = torch.optim.AdamW
