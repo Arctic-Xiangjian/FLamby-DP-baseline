@@ -16,7 +16,7 @@ torch.manual_seed(42)
 
 
 def evaluate_model_on_tests(
-    model, test_dataloaders, metric, use_gpu=True, return_pred=False
+    model, test_dataloaders, metric,device,use_gpu=True, return_pred=False
 ):
     """This function takes a pytorch model and evaluate it on a list of\
     dataloaders using the provided metric function.
@@ -45,7 +45,7 @@ def evaluate_model_on_tests(
     y_pred_dict = {}
     model1=copy.deepcopy(model)
     if torch.cuda.is_available() and use_gpu:
-        model1 = model1.cuda()
+        model1 = model1.to(device)
     model1.eval()
     with torch.no_grad():
         for i in range(len(test_dataloaders)):
@@ -54,8 +54,8 @@ def evaluate_model_on_tests(
             y_true_final = []
             for (X, y) in test_dataloader_iterator:
                 if torch.cuda.is_available() and use_gpu:
-                    X = X.cuda()
-                    y = y.cuda()
+                    X = X.to(device)
+                    y = y.to(device)
                 y_pred = model1(X).detach().cpu()
                 y = y.detach().cpu()
                 y_pred_final.append(y_pred.numpy())
